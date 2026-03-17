@@ -1,10 +1,10 @@
 ---
-description: "Scrape product images and assets from any website URL. Creates a local asset repository with an HTML viewer for browsing, filtering, and copying image URLs for prototyping."
+description: "Scrape product images and assets from any website URL. Downloads images directly into your project's assets folder — ready to use in prototypes, portable on any device."
 ---
 
 # Scrape Assets from Website
 
-You are an asset scraper. The user wants to extract high-quality images from a website for use in prototypes.
+You are an asset scraper. The user wants to extract high-quality images from a website and add them directly into the current project's asset folder so they're ready to use in prototypes.
 
 ## Input
 
@@ -14,11 +14,33 @@ This should be a website URL (e.g., `https://www.sephora.com/`). If no URL is pr
 
 ## Steps
 
-### 1. Determine the project assets directory
+### 1. Find the project's asset folder
 
-- If you're in a project directory (has package.json, index.html, etc.), create an `assets/scraped/` folder there
-- Otherwise, create `~/project-assets/<domain-name>/` (e.g., `~/project-assets/sephora.com/`)
-- Store the output HTML viewer in this directory
+Look at the current working directory and detect the project's existing asset/image folder. Check for these common patterns (in order of priority):
+
+```
+public/images/
+public/assets/
+src/assets/images/
+src/assets/
+src/images/
+assets/images/
+assets/
+static/images/
+static/assets/
+img/
+images/
+```
+
+Also check the project's code (imports, `<img>` tags, CSS `url()`) to see where it loads images from.
+
+**If a matching folder is found:** confirm with the user before writing to it:
+> "I found your project's asset folder at `public/images/`. I'll create a `scraped/<domain>/` subfolder there with banners and product images. OK to proceed?"
+
+**If no project folder is found:** ask the user where they want the assets:
+> "I don't see an existing asset folder in this project. Where should I put the scraped images? Some options:
+> 1. `assets/` (I'll create it)
+> 2. A custom path you specify"
 
 ### 2. Fetch the website
 
@@ -63,63 +85,100 @@ Group images into categories:
 - **Hero/Banner images** — large promotional/campaign images (usually from `/contentimages/`, `/hero/`, `/banner/`, or similar paths, or images wider than tall)
 - **Product images** — individual product shots (usually from `/productimages/`, `/product/`, `/sku/`, or similar paths)
 - **Lifestyle images** — editorial/lifestyle photography
-- **Logos/Icons** — brand logos, UI icons (usually small or SVG)
 - **Other** — anything that doesn't fit above
 
-### 6. Generate the HTML asset viewer
+### 6. Download ALL images into the project
 
-Create a self-contained HTML file with:
+Download every image directly into the project's asset folder. Structure:
+
+```
+<project-asset-folder>/
+  scraped/
+    <domain-name>/
+      banners/
+        banner-korean-skincare-launch.jpg
+        banner-march-minis.jpg
+      products/
+        rare-beauty-soft-pinch-liquid-blush.jpg
+        dior-jadore-parfum.jpg
+        glossier-boy-brow.jpg
+      lifestyle/
+        ...
+      assets.html          <-- the viewer
+      manifest.json        <-- metadata for all images
+```
+
+**Download command:**
+```bash
+curl -s -L -o "<path>/<clean-filename>.jpg" \
+  -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" \
+  "<url>"
+```
+
+**Naming convention:**
+- Products: `<brand>-<short-product-name>.jpg` (lowercase, hyphens, no special chars)
+- Banners: `banner-<descriptive-name>.jpg`
+
+Run downloads in parallel (batches of 10 with `&` and `wait`).
+
+### 7. Generate manifest.json
+
+Create a `manifest.json` in the scraped folder so the project can programmatically use the assets:
+
+```json
+{
+  "source": "https://www.sephora.com/",
+  "scraped_at": "<ISO timestamp>",
+  "banners": [
+    { "file": "banners/banner-korean-skincare.jpg", "label": "Korean Skincare Launch" }
+  ],
+  "products": [
+    { "file": "products/rare-beauty-soft-pinch-liquid-blush.jpg", "brand": "Rare Beauty", "name": "Soft Pinch Liquid Blush" }
+  ]
+}
+```
+
+### 8. Generate the HTML asset viewer
+
+Create `assets.html` in the scraped folder using **local relative paths**.
 
 **Design:**
 - Clean, modern dark header with site name and stats
-- Hero/banner section displayed as a 2-column grid with hover overlays
-- Product grid with cards showing: image, brand name (small caps), product name
+- Hero/banner section as a 2-column grid with hover overlays
+- Product grid with cards: image, brand name (small caps), product name
 - Filter bar with brand/category pills
-- Click-to-zoom lightbox with full image, metadata, and URL
-- Copy-URL button on each card (clipboard icon, visible on hover)
-- "Download All" button that lists all URLs for easy bulk download
-- Responsive layout
+- Click-to-zoom lightbox with full image, metadata, and relative file path
+- Responsive layout (works on phones and desktops)
+- Copy-path button on each card so the user can quickly grab the relative path for their code
 
-**Technical:**
-- All image URLs referenced directly (no downloading needed for the viewer)
-- Product data embedded as a JavaScript array
-- Brand filtering with active state
-- Lightbox with Escape-to-close and click-outside-to-close
-- Toast notification on URL copy
+**Technical — IMPORTANT:**
+- All `<img src="...">` must use LOCAL relative paths (e.g., `products/rare-beauty-soft-pinch-liquid-blush.jpg`)
+- The HTML must work by simply double-clicking it — NO server needed
+- Include a section at the top showing the import paths relative to the project root, so the user can copy-paste them into their code
 
-### 7. Optionally download images locally
-
-After showing the viewer, ask the user if they want to download all images locally into the assets directory. If yes:
+### 9. Verify downloads
 
 ```bash
-# Create subdirectories
-mkdir -p <assets-dir>/banners <assets-dir>/products
-
-# Download with curl, preserving filenames
-curl -s -L -o <assets-dir>/products/<filename>.jpg "<url>"
+find <assets-dir> -name "*.jpg" -size -1k
 ```
 
-### 8. Serve and open
-
-Start a local HTTP server and tell the user the URL:
-
-```bash
-python3 -m http.server <port> --directory <assets-dir> &
-```
-
-Use a port in the 8800-8899 range. Check if the port is available first.
+Remove any failed downloads. Report how many succeeded vs failed.
 
 ## Output
 
 Tell the user:
-1. How many images were found (by category)
-2. The URL to open the viewer (e.g., `http://localhost:8850/assets.html`)
-3. Where the files are saved
-4. Ask if they want to download the images locally for offline use
+1. How many images were downloaded (by category)
+2. Where they were saved (relative to the project root)
+3. That they can open `assets.html` to browse everything
+4. Show a few example import paths they can use in their code, e.g.:
+   - `<img src="./assets/scraped/sephora.com/products/rare-beauty-soft-pinch-liquid-blush.jpg">`
+   - `background-image: url('./assets/scraped/sephora.com/banners/banner-korean-skincare.jpg')`
+5. That the whole project is portable — anyone who gets the project has the assets
 
 ## Important notes
 
-- These images are for **prototyping only** — remind the user about copyright if they plan to use them in production
-- If a site blocks scraping (403/captcha), suggest the user try a specific product page URL instead of the homepage
-- Some sites lazy-load images via JavaScript — extract what's available from the HTML source and note if coverage seems low
-- If the page has very few images in the HTML, suggest trying subpages (e.g., `/products`, `/shop`, `/collections`)
+- **ALWAYS ask for confirmation** before writing into the project's asset folder
+- **ALWAYS download images locally** — never rely on external URLs
+- These images are for **prototyping only** — remind the user about copyright for production use
+- If a site blocks scraping (403/captcha), suggest trying a specific product page URL
+- If few images are found, suggest subpages (e.g., `/products`, `/shop`, `/collections`)

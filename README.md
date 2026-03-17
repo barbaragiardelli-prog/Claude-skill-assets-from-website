@@ -1,6 +1,6 @@
 # Scrape Assets from Website
 
-A Claude Code skill that scrapes product images and assets from any website URL. Creates a local asset repository with an interactive HTML viewer for browsing, filtering, and copying image URLs — perfect for prototyping.
+A Claude Code skill that scrapes product images from any website and downloads them directly into your project's asset folder — ready to use in prototypes, portable on any device.
 
 ![Claude Code](https://img.shields.io/badge/Claude_Code-skill-blueviolet)
 
@@ -9,15 +9,14 @@ A Claude Code skill that scrapes product images and assets from any website URL.
 Give it any website URL and it will:
 
 1. **Fetch the page** with browser-like headers
-2. **Extract all images** — product shots, hero banners, lifestyle photos, logos
+2. **Extract all images** — product shots, hero banners, lifestyle photos
 3. **Pair images with metadata** — product names, brand names from structured data
-4. **Categorize** them (banners vs products vs lifestyle)
-5. **Generate an interactive HTML viewer** with:
-   - Grid layout with brand/product labels
-   - Filter by brand
-   - Click-to-zoom lightbox
-   - One-click copy URL for each image
-6. **Optionally download** all images locally into your project
+4. **Auto-detect your project's asset folder** (e.g., `public/images/`, `src/assets/`)
+5. **Download everything locally** with clean filenames (e.g., `rare-beauty-soft-pinch-liquid-blush.jpg`)
+6. **Generate a manifest.json** for programmatic use
+7. **Generate an interactive HTML viewer** (`assets.html`) to browse, filter, and grab file paths
+
+Everything is local — no external URLs, no server needed. Share your project and the assets come with it.
 
 ## Install
 
@@ -34,7 +33,7 @@ Or manually: download `scrape-assets.md` and drop it into `~/.claude/commands/`.
 
 ## Usage
 
-In any Claude Code session:
+In any Claude Code session, inside your project:
 
 ```
 /scrape-assets https://www.sephora.com/
@@ -43,15 +42,39 @@ In any Claude Code session:
 /scrape-assets https://www.apple.com/shop
 ```
 
-## Example output
+The skill will:
+1. Find your project's asset folder
+2. Ask for confirmation before writing
+3. Download all images into `<your-asset-folder>/scraped/<domain>/`
+4. Show you the import paths ready to paste into your code
 
-The skill generates an interactive HTML viewer like this:
+## Project structure after scraping
 
-- Product cards with brand name, product name, and high-res image
-- Hero/banner images in a separate section
-- Filter pills to narrow by brand
-- Lightbox for full-size preview
-- Copy-to-clipboard for each image URL
+```
+your-project/
+  assets/
+    scraped/
+      sephora.com/
+        banners/
+          banner-korean-skincare-launch.jpg
+          banner-march-minis.jpg
+        products/
+          rare-beauty-soft-pinch-liquid-blush.jpg
+          dior-jadore-parfum.jpg
+          glossier-boy-brow.jpg
+        assets.html       ← browse everything visually
+        manifest.json     ← metadata for all images
+```
+
+## Using the assets in your code
+
+```html
+<img src="./assets/scraped/sephora.com/products/rare-beauty-soft-pinch-liquid-blush.jpg">
+```
+
+```css
+background-image: url('./assets/scraped/sephora.com/banners/banner-korean-skincare.jpg');
+```
 
 ## Notes
 
